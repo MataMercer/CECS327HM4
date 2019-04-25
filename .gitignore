@@ -1,0 +1,4 @@
+*.o
+p2pregistry
+TCP_Client
+UDP_Client   
