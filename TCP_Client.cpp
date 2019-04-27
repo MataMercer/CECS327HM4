@@ -1,57 +1,17 @@
-// // TCP Client program 
-// #include <netinet/in.h> 
-// #include <stdio.h> 
-// #include <stdlib.h> 
-// #include <string.h> 
-// #include <sys/socket.h> 
-// #include <sys/types.h> 
-// #define PORT 8080
-// #define MAXLINE 1024 
-// int main() 
-// { 
-// 	int sockfd; 
-// 	char buffer[MAXLINE]; 
-// 	char* message = "Hello Server"; 
-// 	struct sockaddr_in servaddr; 
-
-// 	int n, len; 
-// 	// Creating socket file descriptor 
-// 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) { 
-// 		printf("socket creation failed"); 
-// 		exit(0); 
-// 	} 
-
-// 	memset(&servaddr, 0, sizeof(servaddr)); 
-
-// 	// Filling server information 
-// 	servaddr.sin_family = AF_INET; 
-// 	servaddr.sin_port = htons(PORT); 
-// 	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1"); 
-
-// 	if (connect(sockfd, (struct sockaddr*)&servaddr, 
-// 							sizeof(servaddr)) < 0) { 
-// 		printf("\n Error : Connect Failed \n"); 
-// 	} 
-
-// 	memset(buffer, 0, sizeof(buffer)); 
-// 	strcpy(buffer, "Hello Server"); 
-// 	write(sockfd, buffer, sizeof(buffer)); 
-// 	printf("Message from server: "); 
-// 	read(sockfd, buffer, sizeof(buffer)); 
-// 	puts(buffer); 
-// 	close(sockfd); 
-// } 
-
-
 // Client side C/C++ program to demonstrate Socket programming 
+#include <unistd.h> 
 #include <stdio.h> 
 #include <sys/socket.h> 
 #include <stdlib.h> 
 #include <netinet/in.h> 
 #include <string.h> 
 #include <pthread.h>
+#include <arpa/inet.h>
 #define PORT 8080 
 #define BUFFER_SIZE 1024
+
+
+using namespace std;
 
 //save socket #
 struct thread_data{
@@ -59,7 +19,7 @@ struct thread_data{
 };
 
 //thread function for reading in input constantly
-void outcomingMessagePrompter(void *t){
+void* outcomingMessagePrompter(void *t){
 	struct thread_data *td;
 	td = (struct thread_data *) t;
 	while(1){
@@ -68,10 +28,12 @@ void outcomingMessagePrompter(void *t){
 		printf("\n"); 
 		send(td->sock , outBuffer , strlen(outBuffer) , 0);
 	}
+
+	return NULL;
 }
 
 //thread function for reading in messages coming from server constantly
-void incomingMessagePrinter(void *t){
+void* incomingMessagePrinter(void *t){
 	int valread;
 	struct thread_data *td;
 	td = (struct thread_data *) t;
@@ -82,6 +44,8 @@ void incomingMessagePrinter(void *t){
 			printf("\n\nServer says: %s\n\n", inBuffer );
 		}
 	}
+
+	return NULL;
 }
 
 int main(int argc, char const *argv[]) 

@@ -1,13 +1,17 @@
 // UDP client program 
-#include <arpa/inet.h> 
-#include <netinet/in.h> 
+#include <unistd.h> 
 #include <stdio.h> 
-#include <stdlib.h> 
-#include <strings.h> 
 #include <sys/socket.h> 
-#include <sys/types.h> 
+#include <stdlib.h> 
+#include <netinet/in.h> 
+#include <string.h> 
+#include <pthread.h>
+#include <arpa/inet.h>
 #define PORT 5000 
 #define MAXLINE 1024 
+
+using namespace std;
+
 int main() 
 { 
 	int sockfd; 

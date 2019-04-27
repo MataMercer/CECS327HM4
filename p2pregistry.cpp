@@ -7,9 +7,11 @@
 #include <string.h> 
 #include <pthread.h>
 #define PORT 8080 
+#define PORT_UDP 8081
 #define BUFFER_SIZE 1024
 #define MAXLINE 1024 
 
+using namespace std;
 
 struct thread_data{
 	int server_socket;
@@ -29,8 +31,28 @@ struct thread_data{
 // 	}
 // }
 
+int generateUniqueID(int* registeredClients, int numberOfRegisteredClients){
+    srand(time(0)); 
+    int upper = BUFFER_SIZE;
+    int lower = 0;
+    int alreadyExistsFlag = 1;
+    int newID = 0;
+    while(alreadyExistsFlag==1){
+        alreadyExistsFlag = 0;
+        newID = (rand() % (upper - lower + 1)) + lower; 
+        for(int i=0; i<numberOfRegisteredClients; i++){
+            if(registeredClients[i] == newID){
+                alreadyExistsFlag = 1;
+                break;
+            }
+        }
+    }
+    return newID;
+}
+
+
 //thread function for reading in messages coming from server constantly
-void incomingMessagePrinter(void *t){
+void* incomingMessagePrinter(void *t){
 	struct thread_data *td;
 	td = (struct thread_data *) t;
 	while(1){
@@ -58,27 +80,12 @@ void incomingMessagePrinter(void *t){
 		}
 		
 	}
+
+	return NULL;
 }
 
 
-int generateUniqueID(int* registeredClients, int numberOfRegisteredClients){
-    srand(time(0)); 
-    int upper = BUFFER_SIZE;
-    int lower = 0;
-    int alreadyExistsFlag = 1;
-    int newID = 0;
-    while(alreadyExistsFlag==1){
-        alreadyExistsFlag = 0;
-        newID = (rand() % (upper - lower + 1)) + lower; 
-        for(int i=0; i<numberOfRegisteredClients; i++){
-            if(registeredClients[i] == newID){
-                alreadyExistsFlag = 1;
-                break;
-            }
-        }
-    }
-    return newID;
-}
+
 
 
 
@@ -100,9 +107,6 @@ int main(int argc, char const *argv[])
 
 	//Listen for connections
 	listen(server_socket, 5);
-
-
-
 
 
 	//init vars
