@@ -1,4 +1,4 @@
-CC1=g++ -O3 -Wall -pthread
+CC1=g++ -O3 -Wall -pthread -std=c++11
 
 CFLAGS = -g -c -Wall -pthread
 #CFLAGS = -ansi -c -Wall -pedantic
