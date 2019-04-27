@@ -7,6 +7,7 @@
 #include <string.h> 
 #include <pthread.h>
 #include <arpa/inet.h>
+#include <iostream>
 #define PORT 8080 
 #define BUFFER_SIZE 1024
 
@@ -95,6 +96,49 @@ int main(int argc, char const *argv[])
         printf("Error:unable to create thread\n");
         exit(-1);
     }
+
+	while(1)
+	{
+		int options=0;
+		bool isPublished=false;
+		string files;
+		cout<<"Menu: \n1. JOIN \n2. PUBLISH \n3. SEARCH \n4. FETCH \n5. EXIT"<<endl;
+		cin>>options;
+		if (options==1&&isPublished)
+		{
+			cout<<"JOIN"<<endl;
+			
+		}
+		else if (options==1&&!isPublished)
+		{
+			cout<<"Please PUBLISH first"<<endl;
+
+		}
+		else if (options==2)
+		{
+			cout<<"PUBLISH"<<endl;
+			cout<<"Enter the files you want to publish"<<endl;
+			cin>>files;
+			isPublished=true;
+
+		}
+		else if (options==3)
+		{
+			cout<<"SEARCH"<<endl;
+
+		}
+		else if (options==4)
+		{
+			cout<<"FETCH"<<endl;
+
+		}
+		else
+		{
+			cout<<"Exiting"<<endl;
+			break;
+		}
+	}
+
 
 	//end threads when they are done.
 	pthread_join(incomingMessageThread, NULL);
