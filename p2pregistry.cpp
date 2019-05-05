@@ -359,7 +359,7 @@ int main(int argc, char const *argv[])
 	unordered_map<string, int>* files = new unordered_map<string, int>();//store a dict/hashmap of filename:clientID to make finding the file owner quick and easy. 
 
 	//init mutex
-    // pthread_mutex_init(&mutex1, 0); //init mutex1
+    pthread_mutex_init(&(*mutex), 0); //init mutex1
 
 
 	//make thread data
@@ -407,7 +407,7 @@ int main(int argc, char const *argv[])
 	delete files; 
 
 	//clean up mutex
-	// pthread_mutex_destroy(&mutex1); 
+	pthread_mutex_destroy(&(*mutex)); 
 	return 0; 
 } 
 
