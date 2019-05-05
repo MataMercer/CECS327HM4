@@ -1,6 +1,13 @@
 {
     "files.associations": {
         "string.h": "c",
-        "unordered_map": "cpp"
+        "unordered_map": "cpp",
+        "ostream": "cpp",
+        "iostream": "cpp",
+        "sstream": "cpp",
+        "xstring": "cpp",
+        "list": "cpp",
+        "vector": "cpp",
+        "xhash": "cpp"
     }
 }

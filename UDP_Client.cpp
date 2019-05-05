@@ -7,7 +7,7 @@
 #include <string.h> 
 #include <pthread.h>
 #include <arpa/inet.h>
-#define PORT 5000 
+#define PORT 5001
 #define MAXLINE 1024 
 
 using namespace std;
@@ -16,7 +16,7 @@ int main()
 { 
 	int sockfd; 
 	char buffer[MAXLINE]; 
-	char* message = "Hello Server"; 
+	char* message = "ping 1"; 
 	struct sockaddr_in servaddr; 
 
 	int n, len; 
@@ -45,5 +45,5 @@ int main()
 //				&len); 
 //	puts(buffer); 
 	close(sockfd); 
-	return 0; 
+    return 0; 
 } 
