@@ -255,28 +255,34 @@ void* clientStatusChecker(void *t){
 	td = (struct thread_data*) t;
 
 	while(1){
+
 		//critical section start
 		pthread_mutex_lock(&(*(td->mutex))); 
-		
-		for(auto& item: *(td->registeredClients) ){
-			
+		unordered_map<int, int>* readOnlyRegisteredClients = new unordered_map<int, int>(*(td->registeredClients));//clone so we aren't erasing and reading from the same map.		
+		for(auto it = readOnlyRegisteredClients->begin(); it != readOnlyRegisteredClients->end(); ++it ){
 			//if client's last ping time exceeds the constant we specified, remove from registered clients.
-			int timeDiff = time(0) - item.second;  
+			int timeDiff = time(0) - it->second;  
 			if(timeDiff > CLIENT_KICK_TIME){
-				int id = item.first;
+				int id = it->first;
 				td->registeredClients->erase(id);
 
 				//check all items under the unordered_map files. if any of them are mapped to the ID we're erasing, remove that file entry. 
-				for(auto& fileItem: *(td->files)){
-					string filename = fileItem.first;
-					int fileOwnerID = fileItem.second;
+				unordered_map<string, int>* readOnlyFiles = new unordered_map<string, int>(*(td->files));//clone so we aren't erasing and reading from the same map.
+				for(auto it2 = readOnlyFiles->begin(); it2 != readOnlyFiles->end(); ++it2 ){
+					string filename = it2->first;
+					int fileOwnerID = it2->second;
 
 					if(fileOwnerID == id){
-						td->files->erase(filename);
-						
+						if(td->files->erase(filename)==1){
+							cout << "[Client Status Checker] Deleted file " << filename << endl;
+							
+						}else{
+							cout << "[Client Status Checker] failed to delete file " << filename << endl;
+						}
 					}
 				}
 				cout << "[Client Status Checker] Client ID " << id << " timed out. It and all its files have been removed." << endl;
+
 			}
 			
 		}
