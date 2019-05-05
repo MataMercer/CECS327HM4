@@ -20,8 +20,7 @@
 
 using namespace std;
 
-//declare mutex variable as global.
-// pthread_mutex_t mutex1;
+
 
 //pack arguments into a struct so you can send it to the thread function as seen below. 
 struct thread_data{
@@ -34,8 +33,12 @@ struct thread_data{
 	int udpfd;
 	fd_set rset; 
 	int maxfdp1;
+	pthread_mutex_t* mutex;
+
 };
 
+
+//HELPER FUNCTIONS
 
 //generate random number to use as the ID for the client. We make sure it's unique by checking the registeredClients hashmap for duplicates.
 int generateUniqueID(unordered_map<int, int>* registeredClients){
@@ -53,7 +56,7 @@ int generateUniqueID(unordered_map<int, int>* registeredClients){
 }
 
 
-
+//given a list of files separated by commas, put each filename into the files unorderedmap mapped to the provided client ID. 
 void registerFiles(string inputString, unordered_map<string, int>* files, int ID){
 	
 	stringstream ss(inputString);
@@ -67,6 +70,7 @@ void registerFiles(string inputString, unordered_map<string, int>* files, int ID
 	
 }
 
+//take string and separate it into words and put words into a vector. aka tokenization.
 void separateStringIntoTokens(string inputString, vector<string>* tokens){
     string buf;                 // Have a buffer string
     stringstream ss(inputString);       // Insert the string into a stream
@@ -76,7 +80,10 @@ void separateStringIntoTokens(string inputString, vector<string>* tokens){
 }
 
 
-//thread function for reading in messages coming from server constantly
+
+//THREAD FUNCTIONS (Listen to stuff sent from the client in the form of 'commmand <params>' with TCP or UDP)
+
+//Constantly listens for incoming TCP requests. Mainly requests to register, but it can also handle filesearch requests. 
 void* clientRegisterListener(void *t){
 	cout << "[Client Register Listener]: Client register listener started!" << endl;
 	struct thread_data *td;
@@ -104,33 +111,46 @@ void* clientRegisterListener(void *t){
 
 			if(command == "register"){
 				//generate ID and put it on the outbuffer
+
 				//critical section start
-				//  pthread_mutex_lock(&mutex1); 
+				pthread_mutex_lock(&(*(td->mutex))); 
+
 				int ID = generateUniqueID(td->registeredClients);
 				td->registeredClients->insert({ID, time(0)});
-				// pthread_mutex_unlock(&mutex1);
-				//critical section end
+				
 				char outBuffer[BUFFER_SIZE];
 				sprintf(outBuffer, "%s%d", "registeredID " ,ID);
 
 				//send ID to client via the outbuffer
 				send(client_socket, outBuffer , strlen(outBuffer) , 0);
 
-				//TODO: add the files the client has to the files list/hashmap.
+				//add the files the client has to the files list/hashmap.
 				(*(td->registeredClients))[ID] = time(0);
 				string filesString = (*tokens).at(1);
 				registerFiles(filesString, td->files ,ID);
+
+				pthread_mutex_unlock(&(*(td->mutex)));
+				//critical section end
+
 				cout << "[Client Register Listener]: Client with ID " << ID << " and its files have been registered." << endl; 
 			}
 			else if(command == "filesearch"){
 				string requestedFile = (*tokens).at(1);
 				int fileOwnerID = -1;
+
+				//critical section start
+				pthread_mutex_lock(&(*(td->mutex))); 
+
 				if ((td->files)->find(requestedFile) != (td->files)->end()){
 					fileOwnerID = (*(td->files))[requestedFile];
 					cout << "[Client Register Listener]: The owner of file " << requestedFile << " is " << fileOwnerID << endl;
-				}else{
+				}
+				else{
 					cout << "[Client Register Listener]: Unable to find file " << requestedFile << endl;
 				}
+
+				pthread_mutex_unlock(&(*(td->mutex)));
+				//critical section end
 				
 
 				char outBuffer[BUFFER_SIZE];
@@ -155,7 +175,7 @@ void* clientRegisterListener(void *t){
 
 
 
-//TODO:
+
 //Listen for client UDP pings to the server showing its alive. 
 void* clientPingListener(void *t){
 	cout << "[Client Ping Listener]: Client ping listener started!" <<endl;
@@ -196,6 +216,9 @@ void* clientPingListener(void *t){
 
 				//if the command is Ping (it should be the only command), update the client's last ping timestamp in registeredClients. Else report incorrect formatted message. 
 				if(command == "ping"){
+					//critical section start
+					pthread_mutex_lock(&(*(td->mutex))); 
+
 					if ((td->registeredClients)->find(clientID) != (td->registeredClients)->end()){
 						cout << "[Client Ping Listener]: Updated the timestamp for client ID " << clientID << endl;  
 						(*(td->registeredClients))[clientID] = time(0);
@@ -203,6 +226,10 @@ void* clientPingListener(void *t){
 					else{
 						cout << "![Client Ping Listener]: The ping came from a client with an ID that is not registered." << endl;
 					}
+
+					pthread_mutex_unlock(&(*(td->mutex)));
+					//critical section end
+
 				}else{
 					cout << "![Client Ping Listener]: Client ping listener received a UDP message that was not in the format 'ping <clientID>'." << endl;
 				}
@@ -220,7 +247,7 @@ void* clientPingListener(void *t){
 }
 
 
-//TODO:
+
 //constantly cycle through the registered clients and check if the last ping time is past the expiration time. 
 void* clientStatusChecker(void *t){
 	cout << "[Client Status Checker] Client status checker has started!" << endl;
@@ -228,16 +255,18 @@ void* clientStatusChecker(void *t){
 	td = (struct thread_data*) t;
 
 	while(1){
-
+		//critical section start
+		pthread_mutex_lock(&(*(td->mutex))); 
+		
 		for(auto& item: *(td->registeredClients) ){
 			
 			//if client's last ping time exceeds the constant we specified, remove from registered clients.
 			int timeDiff = time(0) - item.second;  
-			
 			if(timeDiff > CLIENT_KICK_TIME){
 				int id = item.first;
 				td->registeredClients->erase(id);
 
+				//check all items under the unordered_map files. if any of them are mapped to the ID we're erasing, remove that file entry. 
 				for(auto& fileItem: *(td->files)){
 					string filename = fileItem.first;
 					int fileOwnerID = fileItem.second;
@@ -251,7 +280,12 @@ void* clientStatusChecker(void *t){
 			}
 			
 		}
-		sleep(1);
+
+		pthread_mutex_unlock(&(*(td->mutex)));
+		//critical section end
+
+		//make it more performance friendly by not going at full speed. I actually ran into some issues when it has 0 delays. 
+		sleep(CLIENT_KICK_TIME/2);
 	}
 
 	return NULL;
@@ -312,11 +346,8 @@ int main(int argc, char const *argv[])
 
 
 
-
-
-
-
-
+	//declare mutex variable 
+	pthread_mutex_t* mutex = new pthread_mutex_t();
 	//init the data structures to store client info
 	unordered_map<int, int>* registeredClients = new unordered_map<int, int>();//store a map of clientID:timeOfLastPing. note: time of last ping is just seconds since 1970/epoch. 
 	unordered_map<string, int>* files = new unordered_map<string, int>();//store a dict/hashmap of filename:clientID to make finding the file owner quick and easy. 
@@ -335,6 +366,7 @@ int main(int argc, char const *argv[])
 	td1.udpfd = udpfd;
 	td1.rset = rset; 
 	td1.maxfdp1 = maxfdp1;
+	td1.mutex = mutex;
 
 
 

@@ -19,14 +19,13 @@
 
 using namespace std;
 
-//save socket #
+//save socket # and client ID
 struct thread_data{
 	int sock;
     int* clientID;
 };
 
- 
-
+//take string and separate it into words and put words into a vector. aka tokenization.
 void separateStringIntoTokens(string inputString, vector<string>* tokens){
     string buf;                 // Have a buffer string
     stringstream ss(inputString);       // Insert the string into a stream
@@ -35,42 +34,17 @@ void separateStringIntoTokens(string inputString, vector<string>* tokens){
         tokens->push_back(buf);
 }
 
-//thread function for reading in input constantly
-void* outcomingMessagePrompter(void *t){
-	struct thread_data *td;
-	td = (struct thread_data *) t;
-	while(1){
-		char outBuffer[BUFFER_SIZE]="\0"; 
-    	fgets(outBuffer, BUFFER_SIZE, stdin);
-		printf("\n"); 
-		send(td->sock , outBuffer , strlen(outBuffer) , 0);
-	}
 
-	return NULL;
-}
-
-//thread function for reading in messages coming from server constantly
-void* incomingMessagePrinter(void *t){
-	int valread;
-	struct thread_data *td;
-	td = (struct thread_data *) t;
-	while(1){
-		char inBuffer[BUFFER_SIZE]="\0"; 
-		valread = read( td->sock , inBuffer, BUFFER_SIZE); 
-		if(strlen(inBuffer)>0){
-			printf("\n\nServer says: %s\n\n", inBuffer );
-		}
-	}
-
-	return NULL;
-}
-
+//constantly ping the server every x seconds to let the server know this client is alive. 
 void* pinger(void *t){
     struct thread_data *td;
 	td = (struct thread_data *) t;
     cout << "Pinger thread started. Pinging with ID " << *(td->clientID) << endl; 
     while(1){
+        //ping every x seconds. 
         sleep(PING_TIME);
+
+        //send the message 'ping <clientID>' 
         int sockfd; 
         char buffer[BUFFER_SIZE]; 
         sprintf(buffer, "ping %d", *(td->clientID));
@@ -101,6 +75,8 @@ void* pinger(void *t){
     return NULL;
 }
 
+//register the client by sending a message 'register <file1,file2,filen>'. The server will interpret this as a registration request and return the message
+//'registeredID <AssignedID>' to which the client will use as its ID. 
 int registerClientToServer(int socket, string filenames){ 
 
         int assignedID = -1; 
@@ -132,7 +108,9 @@ int registerClientToServer(int socket, string filenames){
     return assignedID; 
 }
 
-
+//send a filename to search up to the server and the server will respond with what client has that filename. It does this by sending 
+//a message 'filesearch <filename>' and the server responds with 'filesearchresult <ownerIDofFilename>'. If ownerID is -1, it is not found.
+//Next, the client broadcasts this id and the client with that id will print out a message achknowledging it. 
 void fileSearch(int socket, string filename){
         cout << "Searching for file..." << endl;
         char outBuffer[BUFFER_SIZE]="\0"; 
@@ -153,6 +131,9 @@ void fileSearch(int socket, string filename){
                 int ownerID = stoi(tokens->at(1));
                 if(ownerID != -1){
                     cout << "File is located in Client ID " << ownerID << endl;
+
+                    //TODO: BROADCAST FILENAME AND THIS CLIENTID.
+
                 }else{
                     cout << "Unable to find the file." << endl;
                 }
@@ -193,27 +174,9 @@ int main(int argc, char const *argv[])
 	} 
 
 
-
-
-	// //make two threads. one for printing incoming messages, one for reading in outcoming messages.
-	// pthread_t incomingMessageThread;
-	// pthread_t outcomingMessageThread;
-
-
-	// //start threads
-	// int rc1 = pthread_create(&incomingMessageThread, NULL, incomingMessagePrinter, (void *)&td);
-	// int rc2 = pthread_create(&outcomingMessageThread, NULL, outcomingMessagePrompter, (void *)&td);
-
-	// //exit if threads could not be created
-	// if (rc1 || rc2) {
-    //     printf("Error:unable to create thread\n");
-    //     exit(-1);
-    // }
-
-
-
-    //USER PROMPT
+    //put client ID at a location on the HEAP so we can read/write it directly from any function 
     int *clientID = new int();
+    //if unassigned, clientID will be -1.
     *(clientID) = -1;
     
     bool isPublished=false;
@@ -232,10 +195,11 @@ int main(int argc, char const *argv[])
 		int options=0;
 		
 		
-		cout<<"Menu: \n1. REGISTER \n2. LOAD FILES TO CLIENT \n3. SEARCH \n4. FETCH \n5. EXIT"<<endl;
+		cout<<"Menu: \n1. REGISTER \n2. LOAD FILES TO CLIENT \n3. SEARCH \n4. EXIT"<<endl;
 		cin>>options;
 		if (options==1&&isPublished)
 		{
+                //Reconnect to the server 
             	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
                 { 
                     printf("\n Socket creation error \n"); 
@@ -275,6 +239,7 @@ int main(int argc, char const *argv[])
 		}
 		else if (options==3)
 		{
+                //reconnect to the server
             	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
                 { 
                     printf("\n Socket creation error \n"); 
@@ -286,15 +251,11 @@ int main(int argc, char const *argv[])
                     printf("\nConnection Failed \n"); 
                     return -1; 
                 }
+
 			cout<<"SEARCH"<<endl;
             string filename;
             cin >> filename; 
             fileSearch(sock, filename);
-
-		}
-		else if (options==4)
-		{
-			cout<<"FETCH"<<endl;
 
 		}
 		else
@@ -307,8 +268,6 @@ int main(int argc, char const *argv[])
 
 
 	//end threads when they are done.
-	// pthread_join(incomingMessageThread, NULL);
-	// pthread_join(outcomingMessageThread, NULL);
     pthread_join(pingerThread, NULL);
 
 	pthread_exit(NULL);
